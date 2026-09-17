@@ -40,7 +40,17 @@ dependencies = [
 [project.optional-dependencies]
 browser = ["playwright>=1.40"]
 cookies = ["browser-cookie3>=0.19"]
-all = ["playwright>=1.40", "mcp[cli]>=1.0", "browser-cookie3>=0.19"]
+# Media ladder: frame de-duplication only. yt-dlp and requests are already
+# core dependencies, and the VLM is reached over plain HTTP, so nothing here
+# pulls in a model runtime.
+media = ["pillow>=10.0", "imagehash>=4.3"]
+# Media ladder over MCP, for clients with no shell (browser chat). Separate
+# from `media` so a terminal-only install stays light.
+mcp-http = ["mcp>=2.0", "uvicorn>=0.30"]
+all = [
+    "playwright>=1.40", "mcp[cli]>=1.0", "browser-cookie3>=0.19",
+    "pillow>=10.0", "imagehash>=4.3",
+]
 dev = [
     "pytest>=8.0",
     "ruff>=0.8",
@@ -51,6 +61,8 @@ dev = [
 
 [project.scripts]
 agent-reach = "agent_reach.cli:main"
+reach-media = "agent_reach.media_cli:main"
+reach-mcp = "agent_reach.integrations.mcp_http:main"
 
 [project.urls]
 Homepage = "https://github.com/Panniantong/agent-reach"

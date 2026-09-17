@@ -251,6 +251,7 @@ rdt all --limit 10              # 浏览 /r/all
 ```
 
 > **安装**: `pipx install 'git+https://github.com/public-clis/rdt-cli.git'`（PyPI 版本落后，需从 GitHub 装 v0.4.2+）。先 `rdt login` 才能搜索和阅读（服务器无浏览器时手动写 Cookie，见 doctor 提示）。
+> **必须带 `--subreddit`**：实测 `rdt search "关键词"` 不加版块限定会返回与查询无关的 r/all 热门帖（时装、影评之类），看起来像"没有结果"。加上 `--subreddit <版块>` 后立刻命中。
 > 建议使用 `--yaml` 输出，对 AI agent 更友好。
 
 ### 高级选项：官方 API + PRAW（仅限已有凭证的用户）
