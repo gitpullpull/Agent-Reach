@@ -82,6 +82,7 @@ def _run_cli(args: List[str], timeout: int = CALL_TIMEOUT) -> Dict[str, Any]:
 
 def build_server():
     from mcp.server.mcpserver import MCPServer
+    from mcp.server.mcpserver.resources import FunctionResource
 
     server = MCPServer(
         name=SERVER_NAME,
@@ -103,9 +104,51 @@ def build_server():
             "and cost nothing. Reach for the ladder when the answer is only on "
             "screen — and remember that for versioned material the newest "
             "source is often a video and the most detailed write-up is often "
-            "stale."
+            "stale.\n\n"
+            "Reading a result: `asr` (speech) and `visible_text` (on screen) "
+            "are separate evidence and must not be merged — the ladder exists "
+            "because the second is there when the first is silent. Cite the "
+            "`deeplink` for anything taken from the screen; it is what lets a "
+            "reader check you. `warnings` is not decoration: frames that "
+            "failed, an endpoint that fell through, a window too long, "
+            "timestamps reported by the model rather than measured — all of it "
+            "appears there, and a short segment list can mean frames were lost "
+            "rather than that nothing was on screen.\n\n"
+            "A result carrying `refused: true` was declined, not broken — the "
+            "daily download cap is spent, or the call was gated. Nothing here "
+            "is billed; that cap exists so this host's address does not get "
+            "flagged.\n\n"
+            "Subtitles can be present and still wrong. Auto-generated tracks "
+            "drop units, numbers and proper nouns. When a figure matters, "
+            "confirm it against a text source before repeating it."
         ),
     )
+
+    # Reference material, readable on demand rather than carried in every
+    # conversation. The handshake instructions cover what a client must know
+    # up front; these hold the detail it may or may not need.
+    for name, path, title in (
+        ("media-ladder", "agent_reach/skill/references/media-ladder.md",
+         "Media ladder — reading what the subtitles do not say"),
+        ("web", "agent_reach/skill/references/web.md", "Web pages and readers"),
+        ("social", "agent_reach/skill/references/social.md", "Social platforms"),
+        ("video", "agent_reach/skill/references/video.md", "Video and podcasts"),
+    ):
+        def _reader(p=path):
+            def read() -> str:
+                try:
+                    return Path("/workspaces/agent-reach", p).read_text(encoding="utf-8")
+                except OSError as exc:
+                    return f"reference unavailable: {exc}"
+            return read
+
+        server.add_resource(FunctionResource(
+            uri=f"reach://reference/{name}",
+            name=title,
+            description=f"agent-reach reference: {title}",
+            mime_type="text/markdown",
+            fn=_reader(),
+        ))
 
     @server.tool(description="Health of the ladder: fetch backend, vision endpoint, pacing, cookie age. Call before any tier-2 work.")
     def doctor() -> Dict[str, Any]:
