@@ -11,7 +11,7 @@ send it to a vision model.
 
 | field | value |
 |---|---|
-| URL | `https://reach.gitpullpull.me/mcp` |
+| URL | `https://<your-host>/mcp` — whatever `deploy/apply.sh` published |
 | Auth | Bearer token |
 | Token | `cat deploy/.token` |
 
@@ -32,7 +32,7 @@ sudo bash deploy/apply.sh
 The endpoint only answers while the container is up:
 
 ```bash
-cd ~/agent-reach && docker compose up -d
+docker compose up -d
 ```
 
 Nothing else needs to be running. The vision work goes to a hosted model by
@@ -85,7 +85,7 @@ pasted anywhere.
 ```bash
 docker compose ps                       # is it up
 docker compose logs reach-mcp | tail    # did it start
-curl -s -o /dev/null -w '%{http_code}\n' https://reach.gitpullpull.me/mcp   # 401 is correct
+curl -s -o /dev/null -w '%{http_code}\n' https://<your-host>/mcp   # 401 is correct
 ```
 
 `401` without a token is the healthy answer. `404` means the tunnel is not

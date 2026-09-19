@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 #
-# Publish the container's MCP endpoint as https://reach.gitpullpull.me through
-# the Cloudflare Tunnel that already serves the other hostnames.
+# Publish the container's MCP endpoint through a Cloudflare Tunnel you already
+# run, behind an nginx Bearer check.
 #
-#   sudo bash deploy/apply.sh
+#   REACH_HOSTNAME=reach.example.com sudo -E bash deploy/apply.sh
+#
+# Set REACH_HOSTNAME to a subdomain of a zone your tunnel serves. NGINX_PORT
+# only needs changing if something already listens on the default.
 #
 # Idempotent: re-running is safe. Every file it touches is backed up first to
 # <file>.bak.<timestamp>. Nothing is deleted.
@@ -13,9 +16,9 @@
 # It listens on 127.0.0.1:8090 only, so publishing it is this script's job.
 set -euo pipefail
 
-HOSTNAME_FQDN="reach.gitpullpull.me"
-NGINX_PORT=11438
-BACKEND="127.0.0.1:8090"
+HOSTNAME_FQDN="${REACH_HOSTNAME:-}"
+NGINX_PORT="${REACH_NGINX_PORT:-11438}"
+BACKEND="${REACH_BACKEND:-127.0.0.1:8090}"
 DEPLOY_DIR="$(cd "$(dirname "$0")" && pwd)"
 CF_CONFIG="/etc/cloudflared/config.yml"
 TS="$(date +%Y%m%d-%H%M%S)"
@@ -25,7 +28,9 @@ warn() { printf '\033[1;33m[!] %s\033[0m\n' "$*"; }
 ok()   { printf '\033[1;32m[ok] %s\033[0m\n' "$*"; }
 die()  { printf '\033[1;31m[x] %s\033[0m\n' "$*" >&2; exit 1; }
 
-[ "$(id -u)" -eq 0 ] || die "run as root: sudo bash $0"
+[ "$(id -u)" -eq 0 ] || die "run as root: sudo -E bash $0"
+[ -n "$HOSTNAME_FQDN" ] || die "set REACH_HOSTNAME to the subdomain to publish, e.g.
+  REACH_HOSTNAME=reach.example.com sudo -E bash $0"
 [ -f "$DEPLOY_DIR/.token" ] || die "$DEPLOY_DIR/.token is missing. Create one:
   openssl rand -hex 32 > $DEPLOY_DIR/.token && chmod 600 $DEPLOY_DIR/.token"
 TOKEN="$(cat "$DEPLOY_DIR/.token")"
@@ -45,7 +50,10 @@ fi
 
 log "1/4 nginx: Bearer-checked reverse proxy on :$NGINX_PORT"
 backup /etc/nginx/sites-available/reach.conf
-sed "s|__TOKEN__|${TOKEN}|" "$DEPLOY_DIR/nginx-reach.conf.template" \
+sed -e "s|__TOKEN__|${TOKEN}|" \
+    -e "s|__NGINX_PORT__|${NGINX_PORT}|" \
+    -e "s|__BACKEND__|${BACKEND}|" \
+    "$DEPLOY_DIR/nginx-reach.conf.template" \
     > /etc/nginx/sites-available/reach.conf
 chmod 640 /etc/nginx/sites-available/reach.conf
 ln -sfn /etc/nginx/sites-available/reach.conf /etc/nginx/sites-enabled/reach.conf

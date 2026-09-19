@@ -1,8 +1,8 @@
-# agent-reach media ladder over MCP -- same Bearer pattern as the llamacpp site.
-# apply.sh substitutes __TOKEN__ from deploy/.token before installing this to
-# /etc/nginx/sites-available/reach.conf
+# agent-reach media ladder over MCP, behind a Bearer check.
+# apply.sh substitutes __TOKEN__ (from deploy/.token), __NGINX_PORT__ and
+# __BACKEND__ before installing this to /etc/nginx/sites-available/reach.conf
 server {
-    listen 127.0.0.1:11438;
+    listen 127.0.0.1:__NGINX_PORT__;
 
     set $expected_token "__TOKEN__";
     if ($http_authorization != "Bearer $expected_token") {
@@ -14,7 +14,7 @@ server {
     client_max_body_size 8m;
 
     location / {
-        proxy_pass         http://127.0.0.1:8090;
+        proxy_pass         http://__BACKEND__;
         proxy_http_version 1.1;
 
         # Streamable HTTP is server-sent events. Buffering would hold the

@@ -1,7 +1,12 @@
 # VLM endpoint reference
 
-Measured against the live endpoints, not assumed. Where this file and any
-example in the fork spec disagree, **this file wins**.
+Every number and every behaviour here was measured against a running
+endpoint, not assumed. The deployment measured is one person's: a hosted
+model as the primary and a self-hosted llama-server as the fallback, published
+through a Cloudflare Tunnel. **Hostnames below are placeholders — substitute
+your own.** The findings are not placeholders; they are what two very
+different servers actually did with the same requests, and most of them will
+bite anyone wiring a vision model to this ladder.
 
 ## Two endpoints, one ordered list
 
@@ -22,8 +27,8 @@ backends (`channels/base.py`), applied where it had been missing.
 ```
 gemini   : https://generativelanguage.googleapis.com/v1beta/openai
            Authorization: Bearer $GEMINI_API_KEY
-llamacpp : https://llamacpp.gitpullpull.me/v1
-           Authorization: Bearer $LLAMACPP_TOKEN   (~/llama.cpp/deploy/.token)
+llamacpp : https://llamacpp.example.com/v1        # your own llama-server
+           Authorization: Bearer $LLAMACPP_TOKEN
 ```
 
 ```yaml
@@ -34,7 +39,7 @@ vlm:
       api_key_env: GEMINI_API_KEY
       carries_audio: true
     llamacpp:
-      base_url: "https://llamacpp.gitpullpull.me/v1"
+      base_url: "https://llamacpp.example.com/v1"
       api_key_env: LLAMACPP_TOKEN
       carries_audio: false
       extra_body:
@@ -93,18 +98,13 @@ Adding a server means adding a list entry. Never a branch at a call site.
 
 ## ⚠️ The model file name lies
 
-llama.cpp serves a file called **`Qwen3.5-27B-Q4_K_M.gguf`**. It does not
-contain Qwen3.5. It is a symlink into Ollama's blob store pointing at the
-**qwen3.8:27b** weights:
+On the deployment measured here, llama.cpp served a file named for one model
+version while holding the weights of another — the gguf was a symlink into
+Ollama's blob store, so `/v1/models` advertised a name nobody had chosen.
 
-```
-~/models/qwen3.5-27b/Qwen3.5-27B-Q4_K_M.gguf
-  -> /usr/share/ollama/.ollama/models/blobs/sha256-f5f1dd89...
-$ ollama list
-qwen3.8:27b   22130167c4c2   17 GB
-```
-
-Anything reading `/v1/models` sees the wrong name. Config therefore uses
+This is not a quirk of one machine. Any setup that reuses a downloaded blob,
+renames a quantisation, or serves through a path convention will report
+something the operator did not pick. Config therefore uses
 `model: auto`, resolved from `GET /models` once and remembered: llama-server
 ignores the field entirely (verified with the full path, an arbitrary string,
 and the field omitted — all identical), so pinning the path would make config
@@ -218,11 +218,11 @@ the job in a single call.
   `llamacpp.socket` with `StopWhenUnneeded=yes` — it stops when idle and cold
   starts in ~10 s, which is why `GET /models` allows 180 s before calling an
   endpoint unreachable
-- nginx `127.0.0.1:11437` does the Bearer check; `client_max_body_size 512m`
+- nginx does the Bearer check on loopback; `client_max_body_size 512m`
 - Cloudflare Tunnel publishes it; the tunnel's ingress is **dashboard-managed**,
   so editing `/etc/cloudflared/config.yml` validates and changes nothing
 - the ladder's own MCP endpoint is published the same way at
-  `reach.gitpullpull.me` → nginx `:11438` → container `:8090` (`deploy/`)
+  `reach.example.com` → nginx → container `:8090` (`deploy/`)
 
 None of this is known to the code. `vlm/client.py` receives a `base_url` and a
 token and assumes nothing else — swapping in vLLM or another cloud API is a
