@@ -1,0 +1,96 @@
+services:
+  agent-reach:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    container_name: agent-reach-sandbox
+    working_dir: /workspaces/agent-reach
+    volumes:
+      - .:/workspaces/agent-reach
+      - agent-reach-claude-config:/home/vscode/.claude
+      - ${HOME}/.agent-reach:/home/vscode/.agent-reach
+      # rdt-cli hardcodes ~/.config/rdt-cli/credential.json. Bind the directory
+      # (not a symlink to the file — upstream's reader rejects symlinks) so a
+      # Reddit login survives `docker compose down`.
+      - ${HOME}/.agent-reach/rdt-cli:/home/vscode/.config/rdt-cli
+    tmpfs:
+      # Scratch for downloaded media and frames; dies with the container.
+      # `exec` is required: Docker mounts tmpfs noexec by default, which makes
+      # anything placed under /tmp invisible to shutil.which() and breaks both
+      # the upstream test suite and pip builds.
+      - /tmp:size=4g,mode=1777,exec
+    environment:
+      - CLAUDE_CONFIG_DIR=/home/vscode/.claude
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
+      - LLAMACPP_TOKEN=${LLAMACPP_TOKEN:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_API_KEY_2=${GEMINI_API_KEY_2:-}
+      - TMPDIR=/tmp
+      # Downloaded video and extracted frames live on tmpfs and die with the
+      # container. Nothing an agent downloads reaches the host.
+      - REACH_MEDIA_SCRATCH=/tmp/reach-media
+      # Counters, lock and the result cache. On tmpfs: a restart is a clean
+      # slate, by design. Probed endpoint capabilities are NOT here — those
+      # describe the endpoint, not the task, and re-measuring them costs
+      # requests against a quota.
+      - REACH_MEDIA_STATE=/tmp/reach-state
+      # /usr/local/py-utils/bin is where pipx puts rdt-cli. An interactive
+      # shell picks it up from .profile; a subprocess started by the MCP
+      # server does not, so it has to be explicit here.
+      - PATH=/home/vscode/.local/bin:/usr/local/py-utils/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    stdin_open: true
+    tty: true
+    # Install from the mounted source (upstream deps + the media extra), then wait.
+    command: >
+      bash -c "
+        pip install -e '/workspaces/agent-reach[media,dev]' -q &&
+        agent-reach skill --install >/dev/null 2>&1 || true;
+        sleep infinity
+      "
+
+  # The ladder over MCP, for browser-chat clients that have no shell.
+  # Shares the image, the config and the pacing state with the CLI container,
+  # so both count against the same download budget and the same lock.
+  reach-mcp:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    container_name: agent-reach-mcp
+    working_dir: /workspaces/agent-reach
+    volumes:
+      - .:/workspaces/agent-reach
+      - ${HOME}/.agent-reach:/home/vscode/.agent-reach
+      - ${HOME}/.agent-reach/rdt-cli:/home/vscode/.config/rdt-cli
+    tmpfs:
+      - /tmp:size=4g,mode=1777,exec
+    environment:
+      - LLAMACPP_TOKEN=${LLAMACPP_TOKEN:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_API_KEY_2=${GEMINI_API_KEY_2:-}
+      - REACH_MCP_TOKEN=${REACH_MCP_TOKEN:-}
+      - REACH_MEDIA_SCRATCH=/tmp/reach-media
+      # Counters, lock and the result cache. On tmpfs: a restart is a clean
+      # slate, by design. Probed endpoint capabilities are NOT here — those
+      # describe the endpoint, not the task, and re-measuring them costs
+      # requests against a quota.
+      - REACH_MEDIA_STATE=/tmp/reach-state
+      - TMPDIR=/tmp
+      # /usr/local/py-utils/bin is where pipx puts rdt-cli. An interactive
+      # shell picks it up from .profile; a subprocess started by the MCP
+      # server does not, so it has to be explicit here.
+      - PATH=/home/vscode/.local/bin:/usr/local/py-utils/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    # Loopback only. The tunnel reaches it through the host's reverse proxy;
+    # nothing is exposed beyond this machine by publishing it.
+    ports:
+      - "127.0.0.1:8090:8090"
+    command: >
+      bash -c "
+        pip install -e '/workspaces/agent-reach[media,mcp-http]' -q &&
+        reach-mcp
+      "
+    restart: unless-stopped
+
+volumes:
+  agent-reach-claude-config:

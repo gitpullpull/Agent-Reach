@@ -1,0 +1,19 @@
+{
+  "name": "agent-reach-media-ladder",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+  "mounts": [
+    "source=agent-reach-claude-config,target=/home/vscode/.claude,type=volume",
+    "source=${localEnv:HOME}/.agent-reach,target=/home/vscode/.agent-reach,type=bind,consistency=cached"
+  ],
+  "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
+  "postCreateCommand": "pip install -e '/workspaces/agent-reach[media,dev]' -q && mkdir -p ~/.agent-reach/media/cache ~/.agent-reach/cookies && echo 'sandbox ready. run: claude'"
+}

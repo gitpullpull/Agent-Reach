@@ -56,6 +56,7 @@ these platforms — do not invent your own approach.**
 | GitHub / code | dev | [references/dev.md](references/dev.md) |
 | Web pages / articles / RSS | web | [references/web.md](references/web.md) |
 | YouTube / Bilibili / podcast transcripts | video | [references/video.md](references/video.md) |
+| On-screen text/numbers not in the subtitles | media-ladder | [references/media-ladder.md](references/media-ladder.md) |
 | Xueqiu / stock quotes | finance | [references/finance.md](references/finance.md) |
 
 ## Zero-config quick commands
@@ -164,6 +165,7 @@ chains — note: reference docs are written in Chinese, commands are universal):
 - [Dev](references/dev.md) — GitHub CLI
 - [Web](references/web.md) — Jina Reader, RSS
 - [Video](references/video.md) — YouTube, Bilibili, Xiaoyuzhou
+- [Media ladder](references/media-ladder.md) — descend to frames when subtitles cannot answer
 - [Finance](references/finance.md) — Xueqiu quotes, search and market content
 
 ## Configure a channel
